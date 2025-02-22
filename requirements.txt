@@ -1,7 +1,6 @@
 fastapi==0.115.8
 uvicorn==0.34.0
-requests==2.32.3
 python-dotenv==1.0.1
 openai==1.63.2
-line-bot-sdk==2.4.1
+line-bot-sdk==3.16.0
 pydantic==1.10.5
