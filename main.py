@@ -12,6 +12,7 @@ app = FastAPI()
 # 讀取環境變數
 LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN")
 LINE_SECRET = os.getenv("LINE_SECRET")
+PORT = int(os.getenv("PORT", 8080))  # 確保監聽 `PORT=8080`
 
 # 環境變數檢查
 if not LINE_ACCESS_TOKEN or not LINE_SECRET:
@@ -47,4 +48,4 @@ def handle_text_message(event):
 # v 確保程式監聽 Cloud Run 提供的 `PORT`
 if __name__ == "__main__":
     print(f"🚀 伺服器啟動中，監聽 PORT={PORT}")  # 除錯訊息
-    uvicorn.run(app, host="0.0.0.0", port=int(PORT))
+    uvicorn.run(app, host="0.0.0.0", port=PORT)
