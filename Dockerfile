@@ -14,4 +14,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 ENV PORT=8000
 
 # 啟動 FastAPI 伺服器
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "$PORT"]
+# 執行應用程式（讓 $PORT 來決定監聽的埠號）
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT"]
