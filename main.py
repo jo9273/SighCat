@@ -6,30 +6,28 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
-# 建立 FastAPI 應用
 app = FastAPI()
 
-# 讀取環境變數
+# 從環境變數讀取
 LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN")
 LINE_SECRET = os.getenv("LINE_SECRET")
-PORT = os.getenv("PORT")  # ← 改成直接讀取字串，避免「int(os.getenv(..., 8080))」覆蓋 Cloud Run
+PORT = os.getenv("PORT")  # 必須從環境變數取得，不能預設 8080
 
-# 環境變數檢查
+# 檢查必備環境變數
 if not LINE_ACCESS_TOKEN or not LINE_SECRET:
-    raise ValueError("環境變數 LINE_ACCESS_TOKEN 和 LINE_SECRET 未設定，請確認 Cloud Run 變數設定！")
+    raise ValueError("環境變數 LINE_ACCESS_TOKEN 或 LINE_SECRET 未設定!")
 if not PORT:
-    raise ValueError("環境變數 PORT 未設定，請確認 Cloud Run 變數設定！")
+    raise ValueError("環境變數 PORT 未設定，Cloud Run 無法注入 PORT!")
 
-# 初始化 LINE Bot API
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
 
-# 健康檢查 API (Cloud Run 需要 `GET /`)
+# 健康檢查 (GET /)
 @app.get("/")
 async def health_check():
     return {"status": "running"}
 
-# LINE Webhook API (接收 `POST /webhook`)
+# 接收 LINE Webhook (POST /webhook)
 @app.post("/webhook")
 async def webhook(request: Request):
     signature = request.headers.get("X-Line-Signature", "")
@@ -40,14 +38,16 @@ async def webhook(request: Request):
         return {"message": "Invalid signature"}, 400
     return {"message": "OK"}
 
-# LINE 訊息事件處理
+# 處理文字訊息事件
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
     reply_text = event.message.text
-    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"你說的是: {reply_text}"))
+    line_bot_api.reply_message(
+        event.reply_token,
+        TextSendMessage(text=f"你說的是: {reply_text}")
+    )
 
-# 確保程式監聽 Cloud Run 提供的 `PORT`
+# 確保監聽 Cloud Run 提供的 PORT
 if __name__ == "__main__":
-    print(f" 伺服器啟動中，正在監聽 PORT={PORT}")
-    # 將字串的 PORT 轉成 int
+    print(f"伺服器啟動, 監聽 PORT={PORT}")
     uvicorn.run("main:app", host="0.0.0.0", port=int(PORT))
