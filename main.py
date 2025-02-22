@@ -1,55 +1,34 @@
-import os
-import uvicorn
-import requests
 from fastapi import FastAPI, Request
-from dotenv import load_dotenv
+import uvicorn
+import json
+import os
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
-# 讀取 .env 檔案
-load_dotenv()
+app = FastAPI()
 
-# 取得 LINE API Key
+# 設定 LINE API
 LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN")
 LINE_SECRET = os.getenv("LINE_SECRET")
 
-# 初始化 FastAPI 應用
-app = FastAPI()
+line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
+handler = WebhookHandler(LINE_SECRET)
 
-# LINE Messaging API 的回應 URL
-LINE_REPLY_URL = "https://api.line.me/v2/bot/message/reply"
-
-# 根目錄路由（測試用）
-@app.get("/")
-async def root():
-    return {"message": "LINE Chatbot Server is running!"}
-
-# 接收 LINE Webhook 事件
 @app.post("/webhook")
 async def webhook(request: Request):
-    body = await request.json()
-    events = body.get("events", [])
+    signature = request.headers.get("X-Line-Signature", "")
+    body = await request.body()
+    try:
+        handler.handle(body.decode(), signature)
+    except InvalidSignatureError:
+        return {"message": "Invalid signature"}, 400
+    return {"message": "OK"}
 
-    for event in events:
-        if event["type"] == "message" and "text" in event["message"]:
-            reply_token = event["replyToken"]
-            user_message = event["message"]["text"]
+@handler.add(MessageEvent, message=TextMessage)
+def handle_text_message(event):
+    reply_text = event.message.text  # 取得使用者輸入的文字
+    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_text))
 
-            # 回應相同的訊息（Echo Bot）
-            send_text_message(reply_token, user_message)
-
-    return {"status": "ok"}
-
-# 傳送訊息到 LINE 使用者
-def send_text_message(reply_token, text):
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {LINE_ACCESS_TOKEN}"
-    }
-    payload = {
-        "replyToken": reply_token,
-        "messages": [{"type": "text", "text": text}]
-    }
-    requests.post(LINE_REPLY_URL, headers=headers, json=payload)
-
-# 啟動 FastAPI 伺服器
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
