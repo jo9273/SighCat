@@ -3,6 +3,6 @@ __pycache__/
 *.pyo
 *.pyd
 venv/
-.git/
 .env
+.git
 .DS_Store
