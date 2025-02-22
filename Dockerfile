@@ -7,6 +7,9 @@ WORKDIR /app
 # 複製專案檔案
 COPY . /app
 
+RUN ls -l /app
+RUN cat /app/requirements.txt
+
 # 安裝 Python 套件
 RUN pip install --no-cache-dir -r requirements.txt
 
