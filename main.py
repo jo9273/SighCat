@@ -1,6 +1,7 @@
-from fastapi import FastAPI, Request, HTTPException
 import uvicorn
 import os
+import json
+from fastapi import FastAPI, Request, HTTPException
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
@@ -34,8 +35,7 @@ async def webhook(request: Request):
     try:
         handler.handle(body.decode(), signature)
     except InvalidSignatureError:
-        raise HTTPException(status_code=400, detail="Invalid signature")
-
+        return {"message": "Invalid signature"}, 400
     return {"message": "OK"}
 
 # v LINE 訊息事件處理
@@ -44,7 +44,7 @@ def handle_text_message(event):
     reply_text = event.message.text  # 取得使用者輸入的文字
     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"你說的是: {reply_text}"))
 
-# v 確保程式監聽 `PORT=8080`
+# v 確保程式監聽 Cloud Run 提供的 `PORT`
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))  # 預設為 8080，Cloud Run 需要
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    print(f"🚀 伺服器啟動中，監聽 PORT={PORT}")  # 除錯訊息
+    uvicorn.run(app, host="0.0.0.0", port=int(PORT))
