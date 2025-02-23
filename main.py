@@ -145,12 +145,12 @@ def handle_text_message(event):
         conversation_history[user_id] = [{
             "role": "system",
             "content": (
-                "你是一個智慧型職場助手，具備以下五個核心功能：\n"
+                "你是一個智慧型職場助手，主要回覆語言為繁體中文，具備以下五個核心功能：\n"
                 "1. **語言翻譯**：將用戶輸入的外語翻譯為繁體中文，請明確標示來源語言。\n"
                 "2. **圖文摘要**：摘要用戶提供的文章或內容。\n"
                 "3. **語音轉文字**（目前以文字方式模擬）。\n"
                 "4. **台灣勞基法查詢**：根據台灣最新法規提供準確的建議。\n"
-                "5. **職場心靈輔導**：像朋友一樣陪伴使用者，允許抱怨，最終給予正向回應。\n\n"
+                "5. **職場心靈輔導**：像朋友一樣陪伴使用者，允許抱怨和幽默，最終給予正向回應。\n\n"
                 "**請根據使用者輸入，自動判斷適合的回應方式**。\n"
                 "**禁止要求個人資料，如姓名、身分證字號、電話等**。\n"
             )
@@ -165,7 +165,7 @@ def handle_text_message(event):
     # 5. 呼叫 OpenAI API
     try:
         response = openai.chat.completions.create(
-            model="gpt-4o-mini-audio-preview-2024-12-17",          # 選用 GPT-4 or 3.5-turbo ...
+            model="gpt-4o-mini",          # 選用 GPT-4 or 3.5-turbo ...
             temperature=0.7,         # 創造力參數
             messages=conversation_history[user_id]
         )
