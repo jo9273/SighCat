@@ -1,12 +1,12 @@
 import uvicorn
 import os
-import openai
 import time
 from collections import defaultdict
 from fastapi import FastAPI, Request
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from openai import OpenAI  # 最新 OpenAI v1.64.0 的寫法
 
 ###############################################################################
 #                               基本設定區                                    #
@@ -27,7 +27,7 @@ if not LINE_ACCESS_TOKEN or not LINE_SECRET or not OPENAI_API_KEY or not PORT:
 # 初始化 LINE 和 OpenAI
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
-openai.api_key = OPENAI_API_KEY
+client = OpenAI(api_key=OPENAI_API_KEY)  #最新 OpenAI API 初始化方式
 
 ###############################################################################
 #                         對話歷史與清理機制 (後端資料)                         #
@@ -66,6 +66,19 @@ def preserve_system_message_and_trim(user_messages):
     """
     if not user_messages:
         return
+    if user_messages[0]["role"] != "system":
+        user_messages.insert(0, {
+            "role": "system",
+            "content": 
+                "你是一個智慧型職場助手，主要回覆語言為繁體中文，具備以下五個核心功能：\n"
+                "1. **語言翻譯**：將用戶輸入的外語翻譯為繁體中文，請明確標示來源語言。\n"
+                "2. **圖文摘要**：摘要用戶提供的文章或內容。\n"
+                "3. **語音轉文字**（目前以文字方式模擬）。\n"
+                "4. **台灣勞基法查詢**：根據台灣最新法規提供準確的建議。\n"
+                "5. **職場心靈輔導**：像朋友一樣陪伴使用者，允許抱怨和幽默，最終給予正向回應。\n\n"
+                "**請根據使用者輸入，自動判斷適合的回應方式**。\n"
+                "**禁止要求個人資料，如姓名、身分證字號、電話等**。\n"
+        })
 
     # 第0筆應該是 system 訊息
     system_msg = user_messages[0]
@@ -81,9 +94,6 @@ def preserve_system_message_and_trim(user_messages):
     user_messages.extend(others)
 
 def split_message(text, max_length=5000):
-    """
-    將過長的訊息分段，以符合 LINE 單則訊息限制 (約5000字)
-    """
     return [text[i:i+max_length] for i in range(0, len(text), max_length)]
 
 ###############################################################################
@@ -91,10 +101,6 @@ def split_message(text, max_length=5000):
 ###############################################################################
 @app.get("/")
 async def health_check():
-    """
-    健康檢查 API，Cloud Run 需要。
-    瀏覽器打開 https://你的域名/ 可看到 {"status": "running"}。
-    """
     return {"status": "running"}
 
 ###############################################################################
@@ -102,10 +108,6 @@ async def health_check():
 ###############################################################################
 @app.post("/webhook")
 async def webhook(request: Request):
-    """
-    當 LINE 伺服器傳遞事件過來時，會進入此函式。
-    主要邏輯交由 handler.handle(...) 處理。
-    """
     signature = request.headers.get("X-Line-Signature", "")
     body = await request.body()  # 取得 request 內容
     try:
@@ -120,14 +122,6 @@ async def webhook(request: Request):
 ###############################################################################
 @handler.add(MessageEvent, message=TextMessage)
 def handle_text_message(event):
-    """
-    處理使用者傳來的文字訊息。
-    1. 清理過期對話
-    2. 初始化 system 訊息 (若無)
-    3. 呼叫 OpenAI API 生成回應
-    4. 回覆使用者
-    """
-
     # 取得使用者 ID
     user_id = event.source.user_id
 
@@ -142,9 +136,9 @@ def handle_text_message(event):
 
     # 3. 若使用者沒有歷史紀錄，初始化 system 訊息
     if not conversation_history[user_id]:
-        conversation_history[user_id] = [{
+        conversation_history[user_id].append({
             "role": "system",
-            "content": (
+            "content":
                 "你是一個智慧型職場助手，主要回覆語言為繁體中文，具備以下五個核心功能：\n"
                 "1. **語言翻譯**：將用戶輸入的外語翻譯為繁體中文，請明確標示來源語言。\n"
                 "2. **圖文摘要**：摘要用戶提供的文章或內容。\n"
@@ -153,8 +147,7 @@ def handle_text_message(event):
                 "5. **職場心靈輔導**：像朋友一樣陪伴使用者，允許抱怨和幽默，最終給予正向回應。\n\n"
                 "**請根據使用者輸入，自動判斷適合的回應方式**。\n"
                 "**禁止要求個人資料，如姓名、身分證字號、電話等**。\n"
-            )
-        }]
+        })
 
     # 4. 加入使用者輸入到對話紀錄
     conversation_history[user_id].append({
@@ -164,12 +157,12 @@ def handle_text_message(event):
 
     # 5. 呼叫 OpenAI API
     try:
-        response = openai.chat.completions.create(
+        response = client.chat.completions.create(
             model="gpt-4o-mini",          # 選用 GPT-4 or 3.5-turbo ...
             temperature=0.7,         # 創造力參數
             messages=conversation_history[user_id]
         )
-        reply_text = response["choices"][0]["message"]["content"]
+        reply_text = response["choices"][0]["message"]["content"] 
 
         # 把 AI 回應加到對話中
         conversation_history[user_id].append({
@@ -180,10 +173,14 @@ def handle_text_message(event):
         # 6. 保留 system 訊息，並裁切對話長度
         preserve_system_message_and_trim(conversation_history[user_id])
 
-    except openai.error.OpenAIError as e:
-        # OpenAI API 出錯（金鑰錯誤、流量限制、網路問題等）
+    except Exception as e:
+        if "rate limit" in str(e).lower():
+            reply_text = "請求過多，請稍後再試。"
+        elif "authentication" in str(e).lower():
+            reply_text = "API 金鑰錯誤，請檢查你的 OpenAI API 設定。"
+        else:
+            reply_text = "很抱歉，我目前無法處理您的需求，請稍後再試。"
         print(f"OpenAI API Error: {e}")
-        reply_text = "很抱歉，我目前無法處理您的需求。請稍後再試。"
 
     # 7. 將回應切分成多段，避免超過 LINE 單則訊息限制
     try:
