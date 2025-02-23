@@ -127,7 +127,11 @@ def handle_text_message(event):
     3. 呼叫 OpenAI API 生成回應
     4. 回覆使用者
     """
+
+    # 取得使用者 ID
     user_id = event.source.user_id
+
+    # 取得使用者輸入內容
     user_text = event.message.text
 
     # 1. 清理過期對話
