@@ -160,7 +160,7 @@ def handle_text_message(event):
 
     # 5. 呼叫 OpenAI API
     try:
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4o",          # 選用 GPT-4 or 3.5-turbo ...
             temperature=0.7,         # 創造力參數
             messages=conversation_history[user_id]
