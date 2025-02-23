@@ -162,7 +162,7 @@ def handle_text_message(event):
             temperature=0.7,         # 創造力參數
             messages=conversation_history[user_id]
         )
-        reply_text = response["choices"][0]["message"]["content"] 
+        reply_text = response.choices[0].message.content 
 
         # 把 AI 回應加到對話中
         conversation_history[user_id].append({
