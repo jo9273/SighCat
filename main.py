@@ -40,12 +40,12 @@ conversation_history = defaultdict(list)
 conversation_timestamps = {}
 
 # 對話歷史設定
-MAX_HISTORY_LENGTH = 30   # 包含 system 訊息在內，最多保留 30 則
-EXPIRATION_TIME = 7200    # 120 分鐘未互動則刪除對話 (7200秒=2小時)
+MAX_HISTORY_LENGTH = 100   # 包含 system 訊息在內，最多保留 n 則
+EXPIRATION_TIME = 86400    # n時間未互動則刪除對話 (7200秒=2小時)
 
 def cleanup_old_conversations():
     """
-    刪除超過 EXPIRATION_TIME（120 分鐘）未互動的使用者對話紀錄
+    刪除超過 EXPIRATION_TIME（n時間）未互動的使用者對話紀錄
     避免記憶體無限制增長
     """
     current_time = time.time()
@@ -70,13 +70,14 @@ def preserve_system_message_and_trim(user_messages):
         user_messages.insert(0, {
             "role": "system",
             "content": 
-                "你是一個智慧型職場助手，主要回覆語言為繁體中文，具備以下五個核心功能：\n"
+                "你是一個智慧型職場助手，你的名字叫做“舒嘆貓（SighCat）”，主要回覆語言為繁體中文，具備以下五個核心功能：\n"
                 "1. **語言翻譯**：將用戶輸入的外語翻譯為繁體中文，請明確標示來源語言。\n"
                 "2. **圖文摘要**：摘要用戶提供的文章或內容。\n"
                 "3. **語音轉文字**（目前以文字方式模擬）。\n"
                 "4. **台灣勞基法查詢**：根據台灣最新法規提供準確的建議。\n"
                 "5. **職場心靈輔導**：像朋友一樣陪伴使用者，允許抱怨和幽默，最終給予正向回應。\n\n"
                 "**請根據使用者輸入，自動判斷適合的回應方式**。\n"
+                "**回覆語氣以朋友的方式回應使用者**。\n"
                 "**禁止要求個人資料，如姓名、身分證字號、電話等**。\n"
         })
 
@@ -93,6 +94,7 @@ def preserve_system_message_and_trim(user_messages):
     user_messages.append(system_msg)
     user_messages.extend(others)
 
+# 將過長的文字訊息拆分成多段，以符合 LINE 單則訊息的字數上限
 def split_message(text, max_length=5000):
     return [text[i:i+max_length] for i in range(0, len(text), max_length)]
 
@@ -139,13 +141,14 @@ def handle_text_message(event):
         conversation_history[user_id].append({
             "role": "system",
             "content":
-                "你是一個智慧型職場助手，主要回覆語言為繁體中文，具備以下五個核心功能：\n"
+                "你是一個智慧型職場助手，你的名字叫做“舒嘆貓（SighCat）”，主要回覆語言為繁體中文，具備以下五個核心功能：\n"
                 "1. **語言翻譯**：將用戶輸入的外語翻譯為繁體中文，請明確標示來源語言。\n"
                 "2. **圖文摘要**：摘要用戶提供的文章或內容。\n"
                 "3. **語音轉文字**（目前以文字方式模擬）。\n"
                 "4. **台灣勞基法查詢**：根據台灣最新法規提供準確的建議。\n"
                 "5. **職場心靈輔導**：像朋友一樣陪伴使用者，允許抱怨和幽默，最終給予正向回應。\n\n"
                 "**請根據使用者輸入，自動判斷適合的回應方式**。\n"
+                "**回覆語氣以朋友的方式回應使用者**。\n"
                 "**禁止要求個人資料，如姓名、身分證字號、電話等**。\n"
         })
 
@@ -158,7 +161,7 @@ def handle_text_message(event):
     # 5. 呼叫 OpenAI API
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",          # 選用 GPT-4 or 3.5-turbo ...
+            model="gpt-4o",          # 選用 GPT-4 or 3.5-turbo ...
             temperature=0.7,         # 創造力參數
             messages=conversation_history[user_id]
         )
